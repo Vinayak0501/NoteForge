@@ -35,15 +35,12 @@ app.use('/api/notes', require('./routes/notes'));
 app.use('/api/generate', require('./routes/generate'));
 
 // ===== MongoDB Connection =====
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-.then(() => console.log("MongoDB connected"))
-.catch((err) => {
-  console.error("DB connection error:", err);
-  process.exit(1); // crash app if DB fails
-});
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => console.log("MongoDB connected"))
+  .catch((err) => {
+    console.error("DB connection error:", err);
+    process.exit(1);
+  });
 
 // ===== Global Error Handler =====
 app.use((err, req, res, next) => {
