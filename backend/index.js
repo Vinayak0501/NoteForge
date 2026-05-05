@@ -4,53 +4,32 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-
-// ===== Middleware =====
-app.use(express.json());
-
-// CORS config (dev + production)
-const allowedOrigins = [
-  "http://localhost:5173", // local frontend
-  "https://your-frontend.vercel.app" // production frontend
-];
+const PORT = process.env.PORT || 3000;
+const authRoutes = require('./routes/auth');
+const noteRoutes = require('./routes/notes');
+const generateRoutes = require('./routes/generate');
 
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error("CORS not allowed"));
-    }
-  },
-  credentials: true
+  origin: ['http://localhost:5173', 'http://localhost:5174', "https://hotel-ops-sepia.vercel.app"],
+  credentials: true,
 }));
 
-// ===== Routes =====
-app.get("/", (req, res) => {
-  res.json({ message: "API is running ..." });
-});
+app.use(express.json()); // lets you parse json data
 
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/notes', require('./routes/notes'));
-app.use('/api/generate', require('./routes/generate'));
+app.use('/api/auth', authRoutes);
+app.use('/api/notes', noteRoutes);
+app.use('/api/generate', generateRoutes);
 
-// ===== MongoDB Connection =====
+app.get("/", function(req, res){
+
+    res.json({
+        message: 'Server is running'
+    })
+})
+
+// connect to mongoDB
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("MongoDB connected"))
-  .catch((err) => {
-    console.error("DB connection error:", err);
-    // Don't exit in production
-  });
+    .then(() => console.log('MongoDB connected'))
+    .catch((err) => console.log('DB error: ', err));
 
-// ===== Global Error Handler =====
-app.use((err, req, res, next) => {
-  console.error(err.message);
-  res.status(500).json({ error: "Internal Server Error" });
-});
-
-// ===== Port (IMPORTANT for Render) =====
-const PORT = process.env.PORT || 3000;
-
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(3000 , () => console.log("Server started on port 3000"));
