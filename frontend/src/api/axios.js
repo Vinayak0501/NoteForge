@@ -1,9 +1,9 @@
 import axios from 'axios'
 
 
-// Hanle the base URL so you don't repeat it everywhere
+// Handle the base URL so you don't repeat it everywhere
 const API = axios.create({
-    baseURL: 'http://localhost:3000/api'
+  baseURL: import.meta.env.VITE_API_BASE_URL || "/api"
 });
 
 
