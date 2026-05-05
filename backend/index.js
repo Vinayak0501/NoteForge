@@ -5,34 +5,55 @@ require('dotenv').config();
 
 const app = express();
 
-app.use(express.json()); // lets you parse json data
-app.use(cors());
+// ===== Middleware =====
+app.use(express.json());
 
-// connect to mongoDB
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB connected'))
-    .catch((err) => console.log('DB error: ', err));
+// CORS config (dev + production)
+const allowedOrigins = [
+  "http://localhost:5173", // local frontend
+  "https://your-frontend.vercel.app" // production frontend
+];
 
-// connecting to routes
-const authRoutes = require('./routes/auth');
-app.use('/api/auth', authRoutes);
+app.use(cors({
+  origin: function (origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error("CORS not allowed"));
+    }
+  },
+  credentials: true
+}));
 
+// ===== Routes =====
+app.get("/", (req, res) => {
+  res.json({ message: "API is running ..." });
+});
 
-// connecting notes routes to index.js
-const noteRoutes = require('./routes/notes');
-app.use('/api/notes', noteRoutes);
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/notes', require('./routes/notes'));
+app.use('/api/generate', require('./routes/generate'));
 
-
-// connecting to gemini routes
-const generateRoutes = require('./routes/generate');
-app.use('/api/generate', generateRoutes);
-
-app.get("/", function(req, res){
-
-    res.json({
-        message: 'Server is running'
-    })
+// ===== MongoDB Connection =====
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
 })
+.then(() => console.log("MongoDB connected"))
+.catch((err) => {
+  console.error("DB connection error:", err);
+  process.exit(1); // crash app if DB fails
+});
 
+// ===== Global Error Handler =====
+app.use((err, req, res, next) => {
+  console.error(err.message);
+  res.status(500).json({ error: "Internal Server Error" });
+});
 
-app.listen(3000 , () => console.log("Server started on port 3000"));
+// ===== Port (IMPORTANT for Render) =====
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
