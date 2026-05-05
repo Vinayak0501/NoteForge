@@ -1,263 +1,337 @@
-import { useState, useEffect, act } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import axios  from "../api/axios";
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import axios from "../api/axios";
+import AppHeader from "../components/AppHeader";
 
-function NoteDetail(){
+function NoteDetail() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [note, setNote] = useState(null);
+  const [loading, setLoading] = useState("");
+  const [pageLoading, setPageLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState("summary");
 
-    const { id } = useParams();
-    const navigate = useNavigate();
-    const [note, setNote] = useState(null);
-    const [loading, setLoading] = useState('');
-    const [activeTab, setActiveTab] = useState('summary');
+  useEffect(() => {
+    fetchNote();
+  }, []);
 
-    useEffect(() => {
-        fetchNote();
-    }, []);
+  async function fetchNote() {
+    setPageLoading(true);
+    setError("");
 
-    
-    async function fetchNote(){
+    try {
+      const res = await axios.get(`/notes/${id}`);
+      setNote(res.data);
+    } catch (err) {
+      console.log(err);
+      setError("We couldn't load this note right now. Please go back and try again.");
+    } finally {
+      setPageLoading(false);
+    }
+  }
 
-        try{
-            
-            const res = await axios.get(`/notes/${id}`);
-            setNote(res.data);
+  async function handleGenerate(type) {
+    setLoading(type);
+    setError("");
 
-        }
-
-        catch(err){
-            console.log(err);
-        }
-
+    try {
+      const res = await axios.post(`/generate/${type}/${id}`);
+      setNote((prev) => ({ ...prev, ...res.data }));
+      setActiveTab(type === "flashcards" ? "flashcards" : type === "quiz" ? "quiz" : "summary");
+    } catch (err) {
+      console.log(err);
+      setError(`We couldn't generate ${type} right now. Please try again.`);
     }
 
+    setLoading("");
+  }
 
-    async function handleGenerate(type){
-
-        setLoading(type);
-
-        try{
-
-            const res = await axios.post(`/generate/${type}/${id}`);
-            setNote((prev) => ({ ...prev, ...res.data}));
-
-            setActiveTab(type === 'flashcards' ? 'flashcards' : type === 'quiz' ? 'quiz' : 'summary');
-
-        }
-
-        catch(err){
-            console.log(err);
-        }
-
-        setLoading('');
-    }
-
-
-    if(!note){
-        return <p style={{padding: '2rem'}}>Loading...</p>
-    }
-
-    return(
-
-        <div style={styles.container}>
-            <div style={styles.navbar}>
-
-                <button style={styles.backBtn} onClick={() => navigate('/dashboard')}>
-                    Back
-                </button>
-
-                <h2 style={styles.logo}>AI Study Buddy</h2>
-            </div>
-
-            <div style={styles.main}>
-
-                <h2 style={styles.noteTitle}>{note.title}</h2>
-
-                <div style={styles.contentBox}>
-                    <p style={styles.contentText}>{note.content}</p>
-                </div>
-
-                <div style={styles.aiButtons}>
-
-                    <button style={styles.aiBtn} onClick={() => handleGenerate('summary')} disabled={loading === 'summary'}>
-                        {loading === 'summary' ? 'Generating...' : 'Generate Summary'}
-                    </button>
-
-                    <button style={styles.aiBtn} onClick={() => handleGenerate('flashcards')} disabled={loading === 'flashcards'}>
-                        {loading === 'flashcards' ? 'Generating...' : 'Generate Flashcards'}
-                    </button>
-
-                    <button style={styles.aiBtn} onClick={() => handleGenerate('quiz')} disabled={loading === 'quiz'}>
-                        {loading === 'quiz' ? 'Generating...' : 'Generate Quiz'}
-                    </button>
-                </div>
-
-                <div style={styles.tabs}>
-                    {['summary', 'flashcards', 'quiz'].map((tab) => (
-                        
-                        <button key={tab} 
-                        style={activeTab === tab ? styles.tabActive : styles.tab}
-                        onClick={() => setActiveTab(tab)}>
-
-                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                        </button>
-                    ))}
-                </div>
-
-                {activeTab === 'summary' && (
-                    
-                    <div style={styles.resultBox}>
-                        {note.summary ? (
-                            <p style={styles.summaryText}>{note.summary}</p>
-                        ) : (
-                            <p style={styles.empty}>No summary yet. Click "Generate Summary" above</p>
-                        )}
-                    </div>
-                )}
-
-
-                {activeTab === 'flashcards' && (
-
-                    <div>
-                        {note.flashcards.length === 0 ? (
-                            <p style={styles.empty}>No flashcards yet. Click "Generate Flashcards" above.</p>
-                        ) : (
-                            <div style={styles.flashcardsGrid}>
-                                {note.flashcards.map((card,i) => (
-                                    <FlipCard key = {i} front = {card.front} back={card.back}/>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                )}
-
-
-                {activeTab === 'quiz' && (
-                    <div>
-                        {note.quiz.length === 0 ? (
-                            <p style={styles.empty}>No quiz yet. Click "Generate Quiz" above.</p>
-                        ) : (
-                            <QuizSection questions ={note.quiz}/>
-                        )}
-                    </div>
-                )}
-            </div>
+  if (pageLoading) {
+    return (
+      <main className="page-shell">
+        <div className="page-content">
+          <div className="status-banner" aria-live="polite">
+            <h2 className="section-title">Loading note</h2>
+            <p className="status-copy">Preparing the full note and its study materials.</p>
+          </div>
         </div>
+      </main>
     );
-}
+  }
 
-function FlipCard({front, back}){
-
-    const [flipped, setFlipped] = useState(false);
-
-    return(
-        <div style={styles.flipContainer} onClick={() => setFlipped(!flipped)}>
-            <div style={{...styles.flipCard, transform: flipped ? 'rotateY(180deg)' : 'rotateY(0deg)'}}>
-
-                <div style={styles.flipFront}>
-                    <p style={styles.flipText}>{front}</p>
-                    <span style={styles.flipHint}>Click to reveal</span>
-                </div>
-
-                <div style={styles.flipBack}>
-                    <p style={styles.flipText}>{back}</p>
-                </div>
+  if (!note) {
+    return (
+      <main className="page-shell">
+        <div className="page-content">
+          <div className="empty-state">
+            <h2 className="section-title">Note unavailable</h2>
+            <p className="empty-copy">
+              This note could not be displayed. Return to the dashboard and try again.
+            </p>
+            <div className="spacer-top">
+              <button className="primary-button" type="button" onClick={() => navigate("/dashboard")}>
+                Back to dashboard
+              </button>
             </div>
+          </div>
         </div>
-    )
-}
+      </main>
+    );
+  }
 
+  const actions = [
+    {
+      key: "summary",
+      title: "Generate Summary",
+      copy: "Condense the note into a quick review-ready overview.",
+    },
+    {
+      key: "flashcards",
+      title: "Generate Flashcards",
+      copy: "Turn key concepts into fast active-recall practice cards.",
+    },
+    {
+      key: "quiz",
+      title: "Generate Quiz",
+      copy: "Create MCQs to test recall and understanding.",
+    },
+  ];
 
-function QuizSection({ questions }){
+  return (
+    <main className="page-shell">
+      <div className="page-content">
+        <AppHeader
+          title="AI Study Buddy"
+          subtitle="Study material generator"
+          secondaryAction={
+            <button className="ghost-button" type="button" onClick={() => navigate("/dashboard")}>
+              Back
+            </button>
+          }
+        />
 
-    const [answers, setAnswers] = useState({});
-    const[submitted, setSubmitted] = useState(false);
-
-    function handleSelect(qIndex, option){
-
-        if(submitted) return;
-        setAnswers((prev) => ({ ...prev, [qIndex]: option}));
-
-    }
-
-    function getScore(){
-        return questions.filter((q,i) => answers[i] === q.answer).length;
-    }
-
-    return(
-
-        <div>
-            {questions.map((q,i) => (
-                <div key={i} style={styles.quizCard}>
-                    <p style={styles.question}>
-                        {i+1}. {q.question}
-                    </p>
-
-                    <div>
-                        {q.options.map((opt, j) => {
-
-                            let bg = 'white';
-
-                            if(submitted){
-                                if(opt === q.answer) bg = '#d1fae5';
-                                else if (opt === answers[i] && answers[i] !== q.answer) bg = '#fee2e3'
-                            }
-                            else if(answers[i] === opt){
-                                bg = '#ede9fe';
-                            }
-
-                            return(
-                                <div
-                                key={j}
-                                style={{ ...styles.option, backgroundColor: bg}}
-                                onClick={() => handleSelect(i, opt)}>
-                                    {opt}
-                                </div>
-                            );
-                        })}
-                    </div>
+        <section className="detail-grid">
+          <div className="stack">
+            <article className="panel-card">
+              <div className="note-header">
+                <div>
+                  <p className="eyebrow">Source note</p>
+                  <h2 className="note-title">{note.title}</h2>
                 </div>
-            ))}
-
-            {!submitted ? (
-
-                <button style={styles.aiBtn} onClick={() => setSubmitted(true)}>Submit Quiz</button>
-            ) : (
-                <div style={styles.scoreBox}>
-                    You scored {getScore()} out of {questions.length}
+                <div className="meta-row">
+                  <span className={note.summary ? "pill pill-warning" : "pill"}>Summary</span>
+                  <span className={note.flashcards.length > 0 ? "pill pill-success" : "pill"}>
+                    {note.flashcards.length} cards
+                  </span>
+                  <span className={note.quiz.length > 0 ? "pill pill-primary" : "pill"}>
+                    {note.quiz.length} quiz items
+                  </span>
                 </div>
+              </div>
+
+              <p className="note-body">{note.content}</p>
+            </article>
+
+            {error && (
+              <div className="error-banner" role="alert" aria-live="polite">
+                {error}
+              </div>
             )}
-        </div>
-    );
+
+            <div className="tab-row">
+              <div>
+                <p className="eyebrow">Review output</p>
+                <h2 className="section-title">Study materials</h2>
+              </div>
+              <div className="tab-group" role="tablist" aria-label="Study material tabs">
+                {["summary", "flashcards", "quiz"].map((tab) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    className="tab-button"
+                    aria-selected={activeTab === tab}
+                    role="tab"
+                    onClick={() => setActiveTab(tab)}
+                  >
+                    {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="result-card">
+              {activeTab === "summary" && (
+                note.summary ? (
+                  <p className="note-body">{note.summary}</p>
+                ) : (
+                  <div className="empty-state">
+                    <h3 className="empty-title">No summary yet</h3>
+                    <p className="empty-copy">
+                      Generate a summary to create a concise version of this note for quick revision.
+                    </p>
+                  </div>
+                )
+              )}
+
+              {activeTab === "flashcards" && (
+                note.flashcards.length === 0 ? (
+                  <div className="empty-state">
+                    <h3 className="empty-title">No flashcards yet</h3>
+                    <p className="empty-copy">
+                      Generate flashcards to practice recall from this topic in short bursts.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flashcards-grid">
+                    {note.flashcards.map((card, i) => (
+                      <FlipCard key={i} front={card.front} back={card.back} />
+                    ))}
+                  </div>
+                )
+              )}
+
+              {activeTab === "quiz" && (
+                note.quiz.length === 0 ? (
+                  <div className="empty-state">
+                    <h3 className="empty-title">No quiz yet</h3>
+                    <p className="empty-copy">
+                      Generate quiz questions to test how well you understand this note.
+                    </p>
+                  </div>
+                ) : (
+                  <QuizSection questions={note.quiz} />
+                )
+              )}
+            </div>
+          </div>
+
+          <aside className="stack">
+            <div className="panel-card">
+              <p className="eyebrow">AI actions</p>
+              <h2 className="section-title">Build study assets</h2>
+              <p className="section-copy">
+                Generate exactly what you need next, then switch tabs to review it.
+              </p>
+
+              <div className="action-grid spacer-top-lg">
+                {actions.map((action) => (
+                  <button
+                    key={action.key}
+                    type="button"
+                    className="action-card"
+                    onClick={() => handleGenerate(action.key)}
+                    disabled={loading === action.key}
+                    aria-busy={loading === action.key}
+                  >
+                    <h3 className="action-card-title">{action.title}</h3>
+                    <p className="action-card-copy">{action.copy}</p>
+                    <span className="pill pill-primary">
+                      {loading === action.key ? "Generating..." : "Run"}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="status-banner">
+              <h3 className="empty-title">Study flow</h3>
+              <p className="status-copy">
+                Start with a summary for clarity, then use flashcards for recall and quiz mode
+                for self-testing.
+              </p>
+            </div>
+          </aside>
+        </section>
+      </div>
+    </main>
+  );
 }
 
-const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#f5f5f5' },
-  navbar: { backgroundColor: 'white', padding: '1rem 2rem', display: 'flex', alignItems: 'center', gap: '1rem', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' },
-  backBtn: { padding: '6px 14px', backgroundColor: 'transparent', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
-  logo: { margin: 0, fontSize: '18px', color: '#6c63ff' },
-  main: { maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' },
-  noteTitle: { fontSize: '22px', margin: '0 0 1rem', color: '#333' },
-  contentBox: { backgroundColor: 'white', padding: '1.25rem', borderRadius: '12px', marginBottom: '1.5rem', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  contentText: { margin: 0, fontSize: '14px', color: '#555', lineHeight: '1.7' },
-  aiButtons: { display: 'flex', gap: '12px', marginBottom: '1.5rem', flexWrap: 'wrap' },
-  aiBtn: { padding: '10px 18px', backgroundColor: '#6c63ff', color: 'white', border: 'none', borderRadius: '8px', fontSize: '13px', cursor: 'pointer' },
-  tabs: { display: 'flex', gap: '8px', marginBottom: '1rem' },
-  tab: { padding: '8px 18px', backgroundColor: 'white', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
-  tabActive: { padding: '8px 18px', backgroundColor: '#6c63ff', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
-  resultBox: { backgroundColor: 'white', padding: '1.25rem', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  summaryText: { margin: 0, fontSize: '14px', color: '#444', lineHeight: '2' },
-  empty: { color: '#999', fontSize: '14px' },
-  flashcardsGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '16px' },
-  flipContainer: { perspective: '1000px', height: '160px', cursor: 'pointer' },
-  flipCard: { width: '100%', height: '100%', position: 'relative', transformStyle: 'preserve-3d', transition: 'transform 0.5s' },
-  flipFront: { position: 'absolute', width: '100%', height: '100%', backfaceVisibility: 'hidden', backgroundColor: 'white', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '1rem', boxSizing: 'border-box', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  flipBack: { position: 'absolute', width: '100%', height: '100%', backfaceVisibility: 'hidden', backgroundColor: '#6c63ff', borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem', boxSizing: 'border-box', transform: 'rotateY(180deg)', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  flipText: { margin: 0, fontSize: '13px', textAlign: 'center', color: 'inherit' },
-  flipHint: { fontSize: '11px', color: '#aaa', marginTop: '8px' },
-  quizCard: { backgroundColor: 'white', padding: '1.25rem', borderRadius: '12px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' },
-  question: { margin: '0 0 12px', fontSize: '14px', fontWeight: '500', color: '#333' },
-  option: { padding: '10px 14px', borderRadius: '8px', marginBottom: '8px', fontSize: '13px', cursor: 'pointer', border: '1px solid #eee', transition: 'background 0.2s' },
-  scoreBox: { backgroundColor: '#ede9fe', padding: '1rem', borderRadius: '12px', textAlign: 'center', fontSize: '16px', fontWeight: '500', color: '#6c63ff' },
-};
+function FlipCard({ front, back }) {
+  const [flipped, setFlipped] = useState(false);
+
+  return (
+    <div className="flip-card">
+      <button
+        type="button"
+        className={`flip-card-button${flipped ? " is-flipped" : ""}`}
+        onClick={() => setFlipped(!flipped)}
+        aria-pressed={flipped}
+      >
+        <div className="flip-card-inner">
+          <div className="flip-face front">
+            <strong>{front}</strong>
+            <span className="flip-hint">Click to reveal the answer</span>
+          </div>
+          <div className="flip-face back">
+            <strong>{back}</strong>
+            <span className="flip-hint">Click to flip back</span>
+          </div>
+        </div>
+      </button>
+    </div>
+  );
+}
+
+function QuizSection({ questions }) {
+  const [answers, setAnswers] = useState({});
+  const [submitted, setSubmitted] = useState(false);
+
+  function handleSelect(qIndex, option) {
+    if (submitted) return;
+    setAnswers((prev) => ({ ...prev, [qIndex]: option }));
+  }
+
+  function getScore() {
+    return questions.filter((q, i) => answers[i] === q.answer).length;
+  }
+
+  return (
+    <div className="quiz-list">
+      {questions.map((q, i) => (
+        <article key={i} className="quiz-card">
+          <p className="quiz-question">
+            {i + 1}. {q.question}
+          </p>
+
+          <div className="quiz-options">
+            {q.options.map((opt, j) => {
+              let stateClass = "";
+
+              if (submitted) {
+                if (opt === q.answer) stateClass = " correct";
+                else if (opt === answers[i] && answers[i] !== q.answer) stateClass = " incorrect";
+              } else if (answers[i] === opt) {
+                stateClass = " selected";
+              }
+
+              return (
+                <button
+                  key={j}
+                  type="button"
+                  className={`option-button${stateClass}`}
+                  onClick={() => handleSelect(i, opt)}
+                >
+                  {opt}
+                </button>
+              );
+            })}
+          </div>
+        </article>
+      ))}
+
+      {!submitted ? (
+        <button className="primary-button" type="button" onClick={() => setSubmitted(true)}>
+          Submit Quiz
+        </button>
+      ) : (
+        <div className="score-banner">
+          You scored {getScore()} out of {questions.length}.
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default NoteDetail;

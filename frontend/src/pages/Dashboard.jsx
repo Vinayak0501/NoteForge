@@ -1,13 +1,16 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from '../api/axios';
-import { useAuth } from '../context/AuthContext';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import axios from "../api/axios";
+import { useAuth } from "../context/AuthContext";
+import AppHeader from "../components/AppHeader";
 
 function Dashboard() {
   const [notes, setNotes] = useState([]);
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
+  const [notesLoading, setNotesLoading] = useState(true);
+  const [notesError, setNotesError] = useState("");
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -16,11 +19,17 @@ function Dashboard() {
   }, []);
 
   async function fetchNotes() {
+    setNotesLoading(true);
+    setNotesError("");
+
     try {
-      const res = await axios.get('/notes');
+      const res = await axios.get("/notes");
       setNotes(res.data);
     } catch (err) {
       console.log(err);
+      setNotesError("We couldn't load your notes right now. Please try again.");
+    } finally {
+      setNotesLoading(false);
     }
   }
 
@@ -28,114 +37,173 @@ function Dashboard() {
     e.preventDefault();
     setLoading(true);
     try {
-      await axios.post('/notes', { title, content });
-      setTitle('');
-      setContent('');
+      await axios.post("/notes", { title, content });
+      setTitle("");
+      setContent("");
       fetchNotes();
     } catch (err) {
       console.log(err);
+      setNotesError("Your note wasn't saved. Please try again.");
     }
     setLoading(false);
   }
 
   function handleLogout() {
     logout();
-    navigate('/login');
+    navigate("/login");
   }
 
   return (
-    <div style={styles.container}>
-      <div style={styles.navbar}>
-        <h2 style={styles.logo}>AI Study Buddy</h2>
-        <div style={styles.navRight}>
-          <span style={styles.welcome}>Hello, {user}</span>
-          <button style={styles.logoutBtn} onClick={handleLogout}>Logout</button>
-        </div>
-      </div>
-
-      <div style={styles.main}>
-        <div style={styles.formCard}>
-          <h3 style={styles.sectionTitle}>Add a new note</h3>
-          <form onSubmit={handleCreateNote}>
-            <input
-              style={styles.input}
-              type="text"
-              placeholder="Title (e.g. Operating Systems)"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              required
-            />
-            <textarea
-              style={styles.textarea}
-              placeholder="Paste your notes here..."
-              value={content}
-              onChange={(e) => setContent(e.target.value)}
-              required
-              rows={5}
-            />
-            <button style={styles.button} type="submit" disabled={loading}>
-              {loading ? 'Saving...' : 'Save Note'}
+    <main className="page-shell">
+      <div className="page-content">
+        <AppHeader
+          title="AI Study Buddy"
+          subtitle={`Welcome back, ${user}`}
+          secondaryAction={
+            <span className="pill pill-primary" aria-label={`Signed in as ${user}`}>
+              {user}
+            </span>
+          }
+          action={
+            <button className="ghost-button" type="button" onClick={handleLogout}>
+              Logout
             </button>
-          </form>
-        </div>
+          }
+        />
 
-        <div>
-          <h3 style={styles.sectionTitle}>Your notes</h3>
-          {notes.length === 0 && (
-            <p style={styles.empty}>No notes yet. Add one above!</p>
-          )}
-          <div style={styles.notesGrid}>
-            {notes.map((note) => (
-              <div
-                key={note._id}
-                style={styles.noteCard}
-                onClick={() => navigate(`/note/${note._id}`)}
-              >
-                <h4 style={styles.noteTitle}>{note.title}</h4>
-                <p style={styles.notePreview}>
-                  {note.content.substring(0, 100)}...
-                </p>
-                <div style={styles.noteMeta}>
-                  <span style={note.flashcards.length > 0 ? styles.badgeActive : styles.badge}>
-                    {note.flashcards.length} flashcards
-                  </span>
-                  <span style={note.quiz.length > 0 ? styles.badgeActive : styles.badge}>
-                    {note.quiz.length} quiz Qs
-                  </span>
-                  <span style={note.summary ? styles.badgeActive : styles.badge}>
-                    {note.summary ? 'summarised' : 'no summary'}
-                  </span>
-                </div>
+        <section className="dashboard-grid">
+          <aside className="panel-card">
+            <div>
+              <p className="eyebrow">Create note</p>
+              <h2 className="section-title">Add a new study topic</h2>
+              <p className="section-copy">
+                Save your raw notes first. You can generate summaries, flashcards, and
+                quizzes later from the same content.
+              </p>
+            </div>
+
+            <form className="stack" onSubmit={handleCreateNote}>
+              <label className="field-group">
+                <span className="field-label">Title</span>
+                <input
+                  className="text-input"
+                  type="text"
+                  placeholder="Operating Systems, DBMS, Calculus..."
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+              </label>
+
+              <label className="field-group">
+                <span className="field-label">Notes</span>
+                <textarea
+                  className="text-area"
+                  placeholder="Paste or write your notes here..."
+                  value={content}
+                  onChange={(e) => setContent(e.target.value)}
+                  required
+                  rows={8}
+                />
+              </label>
+
+              <div className="form-footer">
+                <span className="muted-text">Your original content stays editable and central.</span>
+                <button className="primary-button" type="submit" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="loading-dots" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      Saving...
+                    </>
+                  ) : (
+                    "Save Note"
+                  )}
+                </button>
               </div>
-            ))}
-          </div>
-        </div>
+            </form>
+          </aside>
+
+          <section className="notes-section" aria-labelledby="notes-heading">
+            <div className="notes-toolbar">
+              <div>
+                <p className="eyebrow">Library</p>
+                <h2 className="section-title" id="notes-heading">
+                  Your notes
+                </h2>
+                <p className="section-copy">
+                  Open any note to generate learning material and review your progress.
+                </p>
+              </div>
+
+              <div className="meta-row">
+                <span className="pill">{notes.length} saved</span>
+                <button className="secondary-button" type="button" onClick={fetchNotes}>
+                  Refresh
+                </button>
+              </div>
+            </div>
+
+            {notesError && (
+              <div className="error-banner" role="alert" aria-live="polite">
+                {notesError}
+              </div>
+            )}
+
+            {notesLoading ? (
+              <div className="status-banner" aria-live="polite">
+                <h3 className="empty-title">Loading your notes</h3>
+                <p className="status-copy">
+                  We&apos;re pulling the latest content into your dashboard.
+                </p>
+              </div>
+            ) : notes.length === 0 ? (
+              <div className="empty-state">
+                <h3 className="empty-title">No notes yet</h3>
+                <p className="empty-copy">
+                  Add your first topic from the form on the left to start building your
+                  study library.
+                </p>
+              </div>
+            ) : (
+              <div className="note-grid">
+                {notes.map((note) => (
+                  <button
+                    key={note._id}
+                    type="button"
+                    className="note-card"
+                    onClick={() => navigate(`/note/${note._id}`)}
+                    aria-label={`Open note ${note.title}`}
+                  >
+                    <h3 className="note-card-title">{note.title}</h3>
+                    <p className="note-card-copy">
+                      {note.content.length > 120
+                        ? `${note.content.substring(0, 120)}...`
+                        : note.content}
+                    </p>
+                    <div className="meta-row">
+                      <span className={note.flashcards.length > 0 ? "pill pill-success" : "pill"}>
+                        {note.flashcards.length} flashcards
+                      </span>
+                      <span className={note.quiz.length > 0 ? "pill pill-primary" : "pill"}>
+                        {note.quiz.length} quiz Qs
+                      </span>
+                      <span className={note.summary ? "pill pill-warning" : "pill"}>
+                        {note.summary ? "summary ready" : "no summary"}
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>
+        </section>
       </div>
-    </div>
+    </main>
   );
 }
-
-const styles = {
-  container: { minHeight: '100vh', backgroundColor: '#f5f5f5' },
-  navbar: { backgroundColor: 'white', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 4px rgba(0,0,0,0.1)' },
-  logo: { margin: 0, fontSize: '20px', color: '#6c63ff' },
-  navRight: { display: 'flex', alignItems: 'center', gap: '16px' },
-  welcome: { fontSize: '14px', color: '#666' },
-  logoutBtn: { padding: '6px 14px', backgroundColor: 'transparent', border: '1px solid #ddd', borderRadius: '8px', cursor: 'pointer', fontSize: '13px' },
-  main: { maxWidth: '800px', margin: '2rem auto', padding: '0 1rem' },
-  formCard: { backgroundColor: 'white', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' },
-  sectionTitle: { margin: '0 0 1rem', fontSize: '16px', color: '#333' },
-  input: { width: '100%', padding: '10px 12px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', boxSizing: 'border-box' },
-  textarea: { width: '100%', padding: '10px 12px', marginBottom: '12px', borderRadius: '8px', border: '1px solid #ddd', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' },
-  button: { padding: '10px 20px', backgroundColor: '#6c63ff', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', cursor: 'pointer' },
-  empty: { color: '#999', fontSize: '14px' },
-  notesGrid: { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '16px' },
-  noteCard: { backgroundColor: 'white', padding: '1.25rem', borderRadius: '12px', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.08)', border: '1px solid #eee' },
-  noteTitle: { margin: '0 0 8px', fontSize: '15px', color: '#333' },
-  notePreview: { margin: '0 0 12px', fontSize: '13px', color: '#888', lineHeight: '1.5' },
-  noteMeta: { display: 'flex', gap: '8px', flexWrap: 'wrap' },
-  badge: { fontSize: '11px', padding: '3px 8px', borderRadius: '20px', backgroundColor: '#f0f0f0', color: '#888' },
-  badgeActive: { fontSize: '11px', padding: '3px 8px', borderRadius: '20px', backgroundColor: '#ede9fe', color: '#6c63ff' },
-};
 
 export default Dashboard;
