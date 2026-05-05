@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://noteforge-1.onrender.com/api/$1"
+      "destination": "https://noteforge-6e8w.onrender.com/api/$1"
     }
   ]
 }
