@@ -9,6 +9,8 @@ const authRoutes = require('./routes/auth');
 const noteRoutes = require('./routes/notes');
 const generateRoutes = require('./routes/generate');
 
+
+
 app.use(cors({
   origin: ['http://localhost:5173', 'http://localhost:5174', "https://note-forge-orpin.vercel.app"],
   credentials: true,
